@@ -1,0 +1,109 @@
+Of course. Here is a detailed, multi-part prompt designed to guide a code-generation AI like a copilot to build the entire Test Case Generator application.
+
+This prompt is structured to be given in one go. It breaks down the project into logical parts: overall architecture, frontend, backend, and the specific AI prompts to use. This level of detail maximizes the chances of getting a complete and executable codebase.
+
+---
+
+### **Master Prompt for "Workik AI Test Case Generator"**
+
+**Project Goal:**
+You are an expert full-stack developer. Your task is to build a complete, executable web application called "Workik AI Test Case Generator". The application allows a user to log in with GitHub, select files from one of their repositories, and use a local Code Llama model to generate test case summaries and the corresponding test code.
+
+**Technology Stack:**
+* **Frontend:** React (using Vite), Tailwind CSS for styling, and `lucide-react` for icons.
+* **Backend:** Python, FastAPI.
+* **AI Model:** Google Gemini 1.5 Flash, accessed via Google AI API.
+* **APIs:** GitHub API for authentication and repository interaction.
+
+**Instructions:**
+Generate the entire project structure with all necessary files. The frontend and backend should be in separate directories (`/frontend` and `/backend`). The final code should be well-commented, production-quality, and ready to run after installing dependencies and setting up the environment variables.
+
+---
+
+### **Part 1: Backend (Python/FastAPI) in `/backend` directory**
+
+1.  **Setup:**
+    * Initialize a Python project with FastAPI, HTTPX, python-dotenv, and google-generativeai.
+    * Create a `.env` file to store `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, and `GEMINI_API_KEY`.
+    * The main server file should be `main.py`.
+
+2.  **API Endpoints:**
+    * **`GET /api/auth/github`**: Redirects the user to the GitHub OAuth consent screen.
+    * **`GET /api/auth/github/callback`**: Handles the callback from GitHub. It should:
+        * Receive the temporary `code` from GitHub.
+        * Exchange it for a permanent `access_token`.
+        * **Important:** Send the `access_token` back to the frontend in the URL query parameters (e.g., `http://localhost:5173/dashboard?token=...`) and redirect. This is a simple token-handling strategy for this project.
+    * **`GET /api/user`**: Requires an `Authorization: Bearer <token>` header. Uses the token to fetch the user's profile from the GitHub API and returns it.
+    * **`GET /api/repos`**: Requires an auth header. Fetches and returns the user's list of repositories.
+    * **`POST /api/repo/files`**: Requires an auth header. Accepts a JSON body `{ "repoUrl": "..." }`. It fetches and returns the file tree for the specified repository.
+    * **`POST /api/generate/summaries`**: The core AI endpoint.
+        * Requires an auth header.
+        * Accepts a JSON body `{ "repoUrl": "...", "filePaths": [...], "framework": "jest" }`.
+        * For each file path, fetch its content from the GitHub API.
+        * Construct framework-specific prompts and send to Google Gemini API.
+        * **Prompt for Summaries:**
+            > You are an expert Test Case Analyst. Your task is to analyze the following code and suggest a list of concise, one-sentence test case summaries. The target testing framework is [framework] for [language]. Focus on [framework-specific areas]. Return your response as a valid JSON array of strings. Do not include any other text, explanation, or markdown formatting.
+            >
+            > Code to analyze:
+            > ---
+            > `[Concatenate the full content of all selected files here, with comments indicating the file path for each, e.g., // File: src/components/Button.jsx]`
+            > ---
+        * Parse the JSON response from Gemini and send the array of summaries back to the frontend.
+    * **`POST /api/generate/code`**:
+        * Requires an auth header.
+        * Accepts `{ "fileContents": "...", "summary": "...", "framework": "jest" }`.
+        * Construct framework-specific prompts and send to Google Gemini API.
+        * **Prompt for Code Generation:**
+            > You are an expert [Framework] Test Code Generator. Your task is to write a complete and executable [framework] test file based on the provided source code and the specific test case objective. Only output the raw code for the test file. Do not include markdown fences (\`\`\`), explanations, or any other text.
+            >
+            > **Test Case Objective:** `[Insert the user-selected summary here]`
+            >
+            > **Source Code:**
+            > ---
+            > `[Insert the concatenated file contents here]`
+            > ---
+        * Send the raw text response (the code) back to the frontend.
+
+---
+
+### **Part 2: Frontend (React/Vite) in `/frontend` directory**
+
+1.  **Setup:**
+    * Initialize a React project using Vite.
+    * Install `axios`, `react-router-dom`, `tailwindcss`, `lucide-react`, and `react-syntax-highlighter`.
+    * Configure Tailwind CSS. Use a clean, modern, dark-themed design.
+
+2.  **Component Structure:**
+    * **`main.jsx`**: Set up React Router.
+    * **`App.jsx`**: Define the routes: `/` for the login page and `/dashboard` for the main app.
+    * **`pages/LoginPage.jsx`**: A centered page with the application title and a "Login with GitHub" button that links to your backend's `/api/auth/github` endpoint.
+    * **`pages/DashboardPage.jsx`**:
+        * On load, it should check for an access token in the URL query parameters. If found, store it in local storage and fetch user data.
+        * Layout: A main grid with a sidebar for repositories/files and a main content area.
+        * **Header:** Display the user's GitHub avatar and name.
+        * **Repo & File Selection (Sidebar):**
+            * A dropdown to select a repository (fetched from `/api/repos`).
+            * When a repo is selected, display its file tree (from `/api/repo/files`) with checkboxes next to each file.
+            * A "Generate Summaries" button at the bottom of the sidebar. This button should show a loading state while waiting for the backend.
+        * **Main Content Area:**
+            * Initially, show a placeholder message like "Select files and generate summaries to begin."
+            * When summaries are returned, display them in a list (`SummariesList.jsx`). Each summary should be a clickable item.
+            * When a summary is clicked, it becomes the "active" summary. A "Generate Code" button should appear.
+            * When "Generate Code" is clicked, show a loading state.
+            * When code is returned, display it beautifully in a `CodeDisplay.jsx` component using `react-syntax-highlighter`, with a "Copy to Clipboard" button.
+
+3.  **API Service:**
+    * Create a file `src/api.js` to manage all `axios` calls to the backend. It should handle attaching the `Authorization: Bearer <token>` header to all necessary requests.
+
+---
+
+### **Part 3: Root Directory (`/`)**
+
+* **`README.md`**: Create a detailed README file that explains:
+    1.  The project's purpose.
+    2.  How to set up the GitHub OAuth App and get the Client ID and Secret, or use Personal Access Token.
+    3.  How to get a Google Gemini API key from Google AI Studio.
+    4.  Step-by-step instructions:
+        * `cd backend` -> `npm install` -> create `.env` -> `npm start`.
+        * `cd frontend` -> `npm install` -> `npm run dev`.
+    5.  A clear description of the application flow.
